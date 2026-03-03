@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LLM Benchmark</string>
+    
+    <!-- Config Section -->
+    <string name="config_title">Configuration</string>
+    <string name="endpoint_label">API Endpoint</string>
+    <string name="api_key_label">API Key</string>
+    <string name="model_label">Model</string>
+    <string name="max_tiers_label">Max Tiers</string>
+    
+    <!-- Benchmark -->
+    <string name="start_benchmark">Start Benchmark</string>
+    <string name="running">Running…</string>
+    <string name="tier_progress">Tier: %1$d/%2$d</string>
+    <string name="concurrency_label">Concurrency: %1$d requests</string>
+    
+    <!-- Results -->
+    <string name="export_csv">Export CSV</string>
+    <string name="tier_header">Tier</string>
+    <string name="ttft_header">TTFT</string>
+    <string name="tokens_per_sec_header">Tks/s</string>
+    <string name="status_header">Status</string>
+    <string name="success_status">✓ Success</string>
+    <string name="error_status">⚠ Has Errors</string>
+    
+    <!-- Errors -->
+    <string name="error_api_key_required">API Key is required</string>
+    <string name="error_endpoint_required">Endpoint is required</string>
+    <string name="error_benchmark_failed">Benchmark failed: %1$s</string>
+</resources>
