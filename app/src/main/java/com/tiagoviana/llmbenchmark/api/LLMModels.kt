@@ -1,6 +1,6 @@
 package com.tiagoviana.llmbenchmark.api
 
-import com.squareup.gson.annotations.SerializedName
+import com.google.gson.annotations.SerializedName
 
 /**
  * Anthropic-compatible API request
@@ -23,7 +23,7 @@ data class Message(
 sealed class StreamEvent {
     data class Token(val text: String) : StreamEvent()
     data class Done(val stopReason: String?) : StreamEvent()
-    data class Error(val exception: Exception) : StreamEvent()
+    data class Error(val exception: Throwable) : StreamEvent()
 }
 
 /**

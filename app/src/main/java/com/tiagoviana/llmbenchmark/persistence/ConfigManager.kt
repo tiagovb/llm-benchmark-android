@@ -59,7 +59,7 @@ class ConfigManager(context: Context) {
     }
     
     companion object {
-        const val DEFAULT_PROMPT = """
+        val DEFAULT_PROMPT = """
             Write a comprehensive technical essay about distributed systems architecture.
             
             Cover the following topics with depth:

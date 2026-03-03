@@ -82,3 +82,4 @@ lint/tmp/
 
 # Secrets
 secrets.properties
+*.hprof
