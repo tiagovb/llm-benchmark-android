@@ -162,7 +162,8 @@ class BenchmarkViewModel(application: Application) : AndroidViewModel(applicatio
             error = null,
             results = emptyList(),
             currentTier = 0,
-            elapsed = 0
+            elapsed = 0,
+            currentTps = 0.0
         )
         
         benchmarkJob = viewModelScope.launch {
@@ -178,7 +179,8 @@ class BenchmarkViewModel(application: Application) : AndroidViewModel(applicatio
                             _state.value = _state.value.copy(
                                 currentTier = progress.currentTier,
                                 elapsed = progress.elapsed,
-                                completedRequests = progress.completedRequests
+                                completedRequests = progress.completedRequests,
+                                currentTps = progress.currentTps
                             )
                             Log.d(TAG, "Progress: tier ${progress.currentTier}/${progress.totalTiers}")
                         } catch (e: Exception) {
@@ -202,13 +204,15 @@ class BenchmarkViewModel(application: Application) : AndroidViewModel(applicatio
                 _state.value = _state.value.copy(
                     isRunning = false,
                     results = tiers,
-                    elapsed = System.currentTimeMillis() - startTime
+                    elapsed = System.currentTimeMillis() - startTime,
+                    currentTps = 0.0
                 )
                 
             } catch (e: Exception) {
                 Log.e(TAG, "Benchmark failed with exception", e)
                 _state.value = _state.value.copy(
                     isRunning = false,
+                    currentTps = 0.0,
                     error = "Benchmark failed: ${e.javaClass.simpleName}: ${e.message}"
                 )
             }

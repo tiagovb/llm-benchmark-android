@@ -28,7 +28,8 @@ class RequestExecutor(
     suspend fun execute(
         requestId: Int,
         prompt: String,
-        maxTokens: Int = 1024
+        maxTokens: Int = 1024,
+        onTokenReceived: () -> Unit = {}
     ): RequestResult {
         Log.d(TAG, "=== execute START requestId=$requestId ===")
         
@@ -53,6 +54,7 @@ class RequestExecutor(
                                     firstTokenTime.set(System.currentTimeMillis())
                                 }
                                 tokenCount.incrementAndGet()
+                                onTokenReceived()
                             }
                             is StreamEvent.Done -> {
                                 Log.d(TAG, "Request $requestId completed with ${tokenCount.get()} tokens")

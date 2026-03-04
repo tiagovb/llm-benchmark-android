@@ -45,6 +45,7 @@ data class BenchmarkProgress(
     val concurrency: Int,
     val completedRequests: Int,
     val elapsed: Long,
+    val currentTps: Double = 0.0,
     val tierResult: TierResult? = null
 )
 
@@ -60,6 +61,7 @@ data class BenchmarkState(
     val currentTier: Int = 0,
     val completedRequests: Int = 0,
     val elapsed: Long = 0,
+    val currentTps: Double = 0.0,
     val results: List<TierResult> = emptyList(),
     val error: String? = null
 )

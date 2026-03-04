@@ -262,6 +262,13 @@ fun BenchmarkTab(
                             Text("Concurrency: ${state.currentTier} requests")
                             Text(formatDuration(state.elapsed))
                         }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "⚡ Real-time: ${String.format("%.1f", state.currentTps)} tks/s",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (state.currentTps > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                        )
                         
                         if (state.isRunning && state.maxTiers > 0) {
                             Spacer(modifier = Modifier.height(8.dp))

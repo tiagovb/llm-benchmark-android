@@ -8,8 +8,13 @@ import com.tiagoviana.llmbenchmark.types.RequestLogManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Orchestrates benchmark execution with progressive concurrency
@@ -46,7 +51,12 @@ class BenchmarkRunner(
                 
                 try {
                     // Execute tier with N concurrent requests
-                    val tierResult = executeTier(tier, prompt, startTime)
+                    val tierResult = executeTier(
+                        concurrency = tier,
+                        prompt = prompt,
+                        benchmarkStart = startTime,
+                        totalTiers = maxTiers
+                    )
                     results.add(tierResult)
                     
                     Log.d(TAG, "Tier $tier completed: ${tierResult.successCount} success, ${tierResult.errorCount} errors")
@@ -60,6 +70,7 @@ class BenchmarkRunner(
                                 concurrency = tier,
                                 completedRequests = tier,
                                 elapsed = System.currentTimeMillis() - startTime,
+                                currentTps = tierResult.avgTokensPerSec,
                                 tierResult = tierResult
                             )
                         )
@@ -98,62 +109,109 @@ class BenchmarkRunner(
     private suspend fun executeTier(
         concurrency: Int,
         prompt: String,
-        benchmarkStart: Long
+        benchmarkStart: Long,
+        totalTiers: Int
     ): TierResult = supervisorScope {
         Log.d(TAG, "executeTier: concurrency=$concurrency")
-        
-        // Launch N concurrent requests
-        val deferredResults = (1..concurrency).map { reqId ->
-            async(Dispatchers.IO) {
+
+        val tierTokenCount = AtomicInteger(0)
+        val firstTokenAt = AtomicLong(0L)
+
+        // Lightweight ticker for real-time TPS (debounced)
+        val tickerJob = launch(Dispatchers.Default) {
+            while (isActive) {
                 try {
-                    val client = LLMClient(
-                        endpoint = endpoint,
-                        apiKey = apiKey,
-                        tier = concurrency,
-                        requestId = reqId
+                    val now = System.currentTimeMillis()
+                    val first = firstTokenAt.get()
+                    val currentTps = if (first > 0L) {
+                        val elapsedStreamingMs = maxOf(1L, now - first)
+                        tierTokenCount.get() * 1000.0 / elapsedStreamingMs
+                    } else {
+                        0.0
+                    }
+
+                    onProgress(
+                        BenchmarkProgress(
+                            currentTier = concurrency,
+                            totalTiers = totalTiers,
+                            concurrency = concurrency,
+                            completedRequests = 0,
+                            elapsed = now - benchmarkStart,
+                            currentTps = currentTps,
+                            tierResult = null
+                        )
                     )
-                    val executor = RequestExecutor(client, model)
-                    executor.execute(reqId, prompt)
                 } catch (e: Exception) {
-                    Log.e(TAG, "Request $reqId failed", e)
-                    // Return error result
-                    com.tiagoviana.llmbenchmark.types.RequestResult(
-                        id = reqId,
-                        ttftMs = 0,
-                        tokensPerSec = 0.0,
-                        totalTokens = 0,
-                        durationMs = 0,
-                        status = "error",
-                        errorDetail = "${e.javaClass.simpleName}: ${e.message}"
-                    )
+                    Log.e(TAG, "Error in realtime TPS ticker", e)
                 }
+                delay(250)
             }
         }
-        
-        // Wait for all requests to complete (even if some fail)
-        val requestResults = try {
-            deferredResults.awaitAll()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error awaiting results", e)
-            emptyList()
+
+        try {
+            // Launch N concurrent requests
+            val deferredResults = (1..concurrency).map { reqId ->
+                async(Dispatchers.IO) {
+                    try {
+                        val client = LLMClient(
+                            endpoint = endpoint,
+                            apiKey = apiKey,
+                            tier = concurrency,
+                            requestId = reqId
+                        )
+                        val executor = RequestExecutor(client, model)
+                        executor.execute(
+                            requestId = reqId,
+                            prompt = prompt,
+                            onTokenReceived = {
+                                val now = System.currentTimeMillis()
+                                firstTokenAt.compareAndSet(0L, now)
+                                tierTokenCount.incrementAndGet()
+                            }
+                        )
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Request $reqId failed", e)
+                        // Return error result
+                        com.tiagoviana.llmbenchmark.types.RequestResult(
+                            id = reqId,
+                            ttftMs = 0,
+                            tokensPerSec = 0.0,
+                            totalTokens = 0,
+                            durationMs = 0,
+                            status = "error",
+                            errorDetail = "${e.javaClass.simpleName}: ${e.message}"
+                        )
+                    }
+                }
+            }
+
+            // Wait for all requests to complete (even if some fail)
+            val requestResults = try {
+                deferredResults.awaitAll()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error awaiting results", e)
+                emptyList()
+            }
+
+            // Calculate aggregated metrics
+            val successfulResults = requestResults.filter { it.status == "success" }
+            val errorResults = requestResults.filter { it.status != "success" }
+
+            TierResult(
+                concurrency = concurrency,
+                requests = requestResults,
+                avgTTFT = if (successfulResults.isNotEmpty()) {
+                    successfulResults.map { it.ttftMs.toDouble() }.average()
+                } else 0.0,
+                avgTokensPerSec = if (successfulResults.isNotEmpty()) {
+                    successfulResults.map { it.tokensPerSec }.average()
+                } else 0.0,
+                totalTokens = successfulResults.sumOf { it.totalTokens },
+                successCount = successfulResults.size,
+                errorCount = errorResults.size
+            )
+        } finally {
+            tickerJob.cancel()
         }
-        
-        // Calculate aggregated metrics
-        val successfulResults = requestResults.filter { it.status == "success" }
-        val errorResults = requestResults.filter { it.status != "success" }
-        
-        TierResult(
-            concurrency = concurrency,
-            requests = requestResults,
-            avgTTFT = if (successfulResults.isNotEmpty()) {
-                successfulResults.map { it.ttftMs.toDouble() }.average()
-            } else 0.0,
-            avgTokensPerSec = if (successfulResults.isNotEmpty()) {
-                successfulResults.map { it.tokensPerSec }.average()
-            } else 0.0,
-            totalTokens = successfulResults.sumOf { it.totalTokens },
-            successCount = successfulResults.size,
-            errorCount = errorResults.size
-        )
     }
 }
