@@ -267,7 +267,7 @@ fun BenchmarkTab(
                             Spacer(modifier = Modifier.height(8.dp))
                             LinearProgressIndicator(
                                 progress = { 
-                                    val progress = state.currentTier.toFloat() / state.maxTiers.toFloat()
+                                    val progress = state.currentTier.toFloat() / state.maxTiers.coerceAtLeast(1)
                                     progress.coerceIn(0f, 1f)
                                 },
                                 modifier = Modifier.fillMaxWidth()
@@ -505,40 +505,38 @@ fun LogEntryCard(log: RequestLog) {
 @Composable
 fun ResultsTable(results: List<TierResult>) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
-        LazyColumn {
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp)
-                ) {
-                    Text(
-                        "Tier",
-                        modifier = Modifier.weight(0.15f),
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                    Text(
-                        "TTFT",
-                        modifier = Modifier.weight(0.2f),
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                    Text(
-                        "Tks/s",
-                        modifier = Modifier.weight(0.2f),
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                    Text(
-                        "Status",
-                        modifier = Modifier.weight(0.45f),
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                }
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp)
+            ) {
+                Text(
+                    "Tier",
+                    modifier = Modifier.weight(0.15f),
+                    style = MaterialTheme.typography.labelMedium
+                )
+                Text(
+                    "TTFT",
+                    modifier = Modifier.weight(0.2f),
+                    style = MaterialTheme.typography.labelMedium
+                )
+                Text(
+                    "Tks/s",
+                    modifier = Modifier.weight(0.2f),
+                    style = MaterialTheme.typography.labelMedium
+                )
+                Text(
+                    "Status",
+                    modifier = Modifier.weight(0.45f),
+                    style = MaterialTheme.typography.labelMedium
+                )
             }
             
-            items(results) { tier ->
+            results.forEach { tier ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
