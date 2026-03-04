@@ -50,6 +50,17 @@ class BenchmarkViewModel(application: Application) : AndroidViewModel(applicatio
     
     init {
         Log.d(TAG, "ViewModel initialized")
+        
+        // Check for previous crashes
+        val prefs = application.getSharedPreferences("crash_prefs", android.content.Context.MODE_PRIVATE)
+        val lastCrash = prefs.getString("last_crash", null)
+        if (lastCrash != null) {
+            _state.value = _state.value.copy(
+                error = "ÚLTIMO CRASH DO APP:\n\n$lastCrash"
+            )
+            prefs.edit().remove("last_crash").apply()
+        }
+        
         startLogPolling()
     }
     
